@@ -173,9 +173,10 @@ logistic_allcities_df |>
   geom_hline(yintercept = 1, linetype = "dashed", color = "grey") +
   geom_errorbar(aes(ymin = ci_ll, ymax = ci_ul),color = "darkred", width = 0.5)+
   geom_point(size = 2, shape = 21, fill = "white") +
-  theme(plot.title = element_text(size = 10, face = "bold")) +
+  theme(plot.title = element_text(size = 10.5, face = "bold"), 
+        axis.title = element_text(size = 9, face = "bold")) +
   labs(y = "Adjusted Odds Ratio", x = "City",
-       title = "Estimate of Unsolved Homicide Cases (w/ 95% CI) in Male Victims versus Female", color = "") +
+       title = "Adjusted OR (w/ 95% CI) for Solved Homicide in Male v/s Female", color = "") +
   coord_flip()
 ```
 There are four cities where estimated adjusted odds ratio is greater than one (Albuquerque, Stockton, Fresno and Nashville) which means that male victims in these cities are more likely to have their case resolved compared to female victims. In all the other 43 cities, male victims have less odds of a resolved homicide case than female victims. In Richmond and Atlanta, male and females have almost equal chance of solved case. 
