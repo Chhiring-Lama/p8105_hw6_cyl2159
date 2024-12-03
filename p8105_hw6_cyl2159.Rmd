@@ -13,6 +13,7 @@ library("PerformanceAnalytics")
 library(modelr)
 library(mgcv)
 library(SemiPar)
+library(ggpubr)
 
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -93,14 +94,20 @@ The estimates of $r^2$ and $log(\hat{\beta_0}*\hat{\beta_1})$ (as shown above) a
 
 ```{r}
 r_squared_ci <- bootstrap_r_squared |> 
-  summarise(boot_ci_ll = quantile(`r.squared`, 0.025) |> round(digits = 3), 
-            boot_ci_ul = quantile(`r.squared`, 0.975) |> round(digits = 3))
+  summarise(r_squared_ci_ll = quantile(`r.squared`, 0.025) |> round(digits = 3), 
+            r_squared_ci_ul = quantile(`r.squared`, 0.975) |> round(digits = 3))
 
 log_estimate_ci <- bootstrap_log_estimate |> 
-  summarise(boot_ci_ll = quantile(log_estimate, 0.025) |> round(digits = 3), 
-            boot_ci_ul = quantile(log_estimate, 0.975) |> round(digits = 3))
+  summarise(log_estimate_ci_ll = quantile(log_estimate, 0.025) |> round(digits = 3), 
+            log_estimate_ci_ul = quantile(log_estimate, 0.975) |> round(digits = 3))
+
+r_squared_ci |> 
+  knitr::kable()
+
+log_estimate_ci |> 
+  knitr::kable()
 ```
-95% confidence interval for $r^2$ and $log(\hat{\beta_0}*\hat{\beta_1})$ are (`r pull(r_squared_ci, boot_ci_ll)`, `r pull(r_squared_ci, boot_ci_ul)`) and (`r pull(log_estimate_ci, boot_ci_ll)`, `r pull(log_estimate_ci, boot_ci_ul)`) respectively. We are 95% sure that the model explains between `r pull(r_squared_ci, boot_ci_ll)` and `r pull(r_squared_ci, boot_ci_ul)` of variance in the maximum temperature. 
+95% confidence interval for $r^2$ and $log(\hat{\beta_0}*\hat{\beta_1})$ are (`r pull(r_squared_ci, r_squared_ci_ll)`, `r pull(r_squared_ci, r_squared_ci_ul)`) and (`r pull(log_estimate_ci, log_estimate_ci_ll)`, `r pull(log_estimate_ci, log_estimate_ci_ul)`) respectively. We are 95% sure that the model explains between `r pull(r_squared_ci, r_squared_ci_ll)` and `r pull(r_squared_ci, r_squared_ci_ul)` of variance in the maximum temperature. 
 
 ## Problem 2
 
@@ -144,8 +151,10 @@ res_male <- logistic_mod |>
 or_male <- pull(res_male, `adj_OR`) |> 
   round(digits = 3)
 
-logistic_mod |> 
-  knitr::kable(digits = 3) 
+
+res_male |> 
+  mutate_if(is.numeric, signif, 3) |> 
+  knitr::kable(digits = 11)
 
 ```
 Upon running the logistic regression, at 5% significance level and after keeping all other variables fixed, we have significant evidence that male victims have lower probability (`r 1 - or_male` less likely) of having homicides solved compared to female victims. We are 95% confident that the true adjusted odds ratio is between `r pull(res_male, ci_ll) |> round(digits = 3)` and `r pull(res_male, ci_ul) |> round(digits = 3)`. 
@@ -183,7 +192,7 @@ logistic_allcities_df |>
        title = "Adj. OR (w/ 95% CI) for Solved Cases in Male v/s Female", color = "") +
   coord_flip()
 ```
-There are four cities where estimated adjusted odds ratio is greater than one (Albuquerque, Stockton, Fresno and Nashville) which means that male victims in these cities are more likely to have their case resolved compared to female victims. In all the other 43 cities, male victims have less odds of a resolved homicide case than female victims. In Richmond and Atlanta, male and females have almost equal chance of solved case. 
+There are four cities where estimated adjusted odds ratio is greater than one (Albuquerque, Stockton, Fresno and Nashville) which means that male victims in these cities are more likely to have their case resolved compared to female victims. In Richmond and Atlanta, male and females have almost equal chance of solved case. In all the other cities, male victims have less odds of a resolved homicide case than female victims. 
 
 ## Problem 3
 Load and clean the child birthweight dataset.
@@ -213,16 +222,16 @@ child_df <- read_csv("data/birthweight.csv") |>
 
 missing_value_check <- unique(is.na(child_df))
 ```
-The child birthweight dataset consists of 4 categorical variables (`babysex`, `frace`, `malform` and `mrace`) representing sec of the baby, father's race, presence of any malformation that could affect baby's weight and mother's race. There are 16 numerical variables. 
+The child birthweight dataset consists of 4 categorical variables (`babysex`, `frace`, `malform` and `mrace`) representing sex of the baby, father's race, presence of any malformation that could affect baby's weight and mother's race. There are 16 numerical variables. 
 
-I am interested to check if birthweight can be predicted using mother's delivery weight after accounting for all other observations related to her. So, first I checked the correlation between related continuous variables. 
+I am interested to check if birthweight can be predicted by using mother's delivery weight while accounting for all other observations related to her. So, first I checked the correlation between related continuous variables. 
 ```{r, fig.width = 6, fig.height = 7, out.width = "99%", dpi=600}
 my_data <- child_df[, c("delwt","menarche", "ppbmi", "wtgain", "mheight", "ppwt", 
                         "momage", "gaweeks", "pnumsga", "parity", "smoken")]
 chart.Correlation(my_data, histogram=TRUE, pch=19)
 ```
 
-Mother's pre-pregancy BMI - which is based on their height/weight at that point - correlates with weight at delivery too, so I used `delwt` along with `ppbmi` along with interaction terms to test their combined effects. The value for `ppbmi` is derived from `mheight` and `ppwt`, so using these variable will be redundant. Number of prior small for gestational age babies all have value of 0 and number of live births prior to this pregnancy are mostly 0, so they are not an informative variable. Therefore, I first start by proposing a multiple linear regression for birthweight as `delwt`, `menarche`, `wtgain`, `ppbmi`, `momage`, `gaweeks`, `smoken` and additional categorical variable: mother's race. 
+Mother's pre-pregancy BMI - which is based on their height/weight at that point - correlates with weight at delivery too, so I used `delwt` along with `ppbmi` along with interaction terms to test their combined effects. The value for `ppbmi` is derived from `mheight` and `ppwt`, so using latter these variable will be redundant. Number of prior small for gestational age babies all have value of 0 and number of live births prior to this pregnancy are mostly 0, so they are not an informative variable. Therefore, I first start by proposing a multiple linear regression for birthweight as `delwt`, `menarche`, `wtgain`, `ppbmi`, `momage`, `gaweeks`, `smoken` and additional categorical variable: mother's race. 
 
 ```{r}
 child_df <- child_df |> 
@@ -241,7 +250,10 @@ Visualize the relation between birthweight and mother's weight during delivery
 train_df |> 
   ggplot(aes(x = delwt, y = bwt), size = 0.2) + 
   geom_point()+
-  geom_point(data = test_df, color = "skyblue")
+  geom_point(data = test_df, color = "skyblue") +
+  scale_color_discrete(labels = c("Training", "Test")) +
+  geom_smooth(method = lm, se = FALSE)+ 
+  stat_cor(label.x = 200, label.y = 1000)
 ```
 
 Fit the linear multiple regression model with the above mentioned predictors
@@ -271,12 +283,13 @@ train_df |>
   ggplot(aes(x = pred, y = resid)) + 
   geom_hline(yintercept = 0, color = "red", alpha = 0.6, linetype = "dotted") +
   geom_point(size = 0.4, color = "black", shape = 21)+
+  geom_smooth(method = lm, se = FALSE)+ 
   labs(title = "Residual Versus Fitted Values")
 ```
 The "spread" of the points in the plot are remain similar across different predicted values, and their residuals do not follow a specific "trend". So, we can assume linearity and homoscedasticity in the model above. 
 
 Adding the two other models and cross-validation of all three models: 
-* Model1: Linear model above with mothers' delivery weight, age, race, gestational period and number of cigarrettes smokes during pregnancy. 
+* Model1: Linear model above with mothers' delivery weight, age, race, gestational period and number of cigarettes smokes during pregnancy. 
 * Model2: One using length at birth and gestational age as predictors (main effects only)
 * Model3: One using head circumference, length, sex, and all interactions (including the three-way interaction) between these.
 
